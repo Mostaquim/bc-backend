@@ -51,4 +51,4 @@ class OTP_CODES(models.Model):
 
 
     def __str__(self):
-        return self.code
+        return str(self.phone_number)

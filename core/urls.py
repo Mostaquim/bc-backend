@@ -23,6 +23,7 @@ urlpatterns = [
     # Your URLs...
     path('admin/', admin.site.urls),
     path('init/', views.InitPhoneNumberView.as_view()),
+    path('userupdate/', views.UserUpdateView.as_view()),
     path('otp/', views.OTPView.as_view()),
     path('api-token-auth/', obtain_jwt_token),
     path('api-token-refresh/', refresh_jwt_token),

@@ -11,13 +11,6 @@ from .serializers import UserSerializer
 from .helpers import get_token, generateOTP
 
 
-class HelloView(APIView):
-    permission_classes = (IsAuthenticated,)
-
-    def get(self, request):
-        content = {'message': 'Hello, World!'}
-        return Response(content)
-
 
 class InitPhoneNumberView(APIView):
     permission_classes = ()
@@ -33,12 +26,13 @@ class InitPhoneNumberView(APIView):
                 o = o[0]
                 o.code = otp
                 o.is_used = False
+                o.save()
             else:
                 o = OTP_CODES(phone_number=phone_number, code=otp)
                 o.save()
 
             return Response({
-                'status': 'otp'
+                'status': 'otp created'
             })
 
         return Response({
@@ -50,32 +44,72 @@ class OTPView(APIView):
     permission_classes = ()
 
     def post(self, request):
-        if 'phone_number' in request.data:
+        if 'phone_number' and 'otp' in request.data:
             phone_number = request.data['phone_number']
+            otp_code = request.data['otp']
 
-            user = User.objects.filter(phone_number=phone_number)
-            if user.exists():
-                user = user[0]
-                user_serialized = UserSerializer(user)
-                token = get_token(user)
-                if user.is_active:
+            otp = OTP_CODES.objects.filter(phone_number=phone_number, code=otp_code)
+            
+            if otp.exists():
+                otp = otp[0]
+                if otp.is_used:
                     return Response({
-                        'status': 'registered',
-                        'user': user_serialized.data,
+                        'status': 'error',
+                        'message': 'OTP USED'
+                    })
+                otp.is_used = True
+                otp.save()
+
+                user = User.objects.filter(phone_number=phone_number)
+
+                if user.exists():
+                    
+                    user = user[0]
+                    token = get_token(user)
+                    return Response({
+                        'status': 'OK',
+                        'user_registered': True,
+                        'user': UserSerializer(user).data,
                         'token': token
                     })
                 else:
+                    user = User.objects.create_user_phone(phone_number)
+                    token = get_token(user)
+                    user.is_active = True
+                    user.save()
+
                     return Response({
-                        'status': 'not_active',
-                        'user': user_serialized.data,
+                        'status': 'OK',
+                        'user_registered': False,
+                        'user': UserSerializer(user).data,
                         'token': token
                     })
+
             else:
-                user = User.objects.create_user_phone(phone_number)
-            return Response({
-                'status': 'new_user',
-                'user': user.pk
-            })
+                return Response({
+                    'status': 'error',
+                    'message': 'Invalid OTP'
+                })
+
+
+            
         return Response({
             'status': 'error'
         }, status=status.HTTP_400_BAD_REQUEST)
+
+
+
+class UserUpdateView(APIView):
+    permission_classes = (IsAuthenticated,)
+    def get(self, request):
+        user = request.user
+        serializer = UserSerializer(user)
+        return Response(serializer.data)
+
+    def put(self, request,  format=None):
+        user = request.user
+        serializer = UserSerializer(user, data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
