@@ -27,6 +27,7 @@ class UserManager(UM):
 
     def create_user_phone(self, phone_number, password=None, **extra_fields):
         extra_fields.setdefault('is_active', False)
+        phone_number = str(phone_number)
         email = phone_number + '@bashachai.com'
         extra_fields.setdefault('email',email)
         
